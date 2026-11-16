@@ -9,14 +9,15 @@ Este proyecto es una página web romántica con:
 
 ## Cómo usarlo
 
-1. Abre `index.html` en tu navegador.
+1. Ejecuta el proyecto con un servidor local (por ejemplo, la extensión Live Server de VS Code) y abre la URL que genera. Evita abrir `index.html` directamente con `file://`, ya que algunos navegadores bloquean la carga de la música.
 2. Edita `config.js` para personalizar:
    - el título
    - el mensaje y firma
    - las rutas de las fotos
-   - la canción
-3. Guarda los archivos de imagen en la carpeta `fotos/`.
-4. Guarda el archivo de audio en la carpeta `musica/`.
+   - el título de la canción
+3. Si cambias el archivo de música, actualiza `SONG_PATH` en `index.html`.
+4. Guarda los archivos de imagen en la carpeta `fotos/`.
+5. Guarda el archivo de audio en la carpeta `musica/`.
 
 ## Estructura
 

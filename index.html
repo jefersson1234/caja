@@ -489,7 +489,7 @@
   <canvas id="confetti-canvas" aria-hidden="true"></canvas>
 
   <div id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada">
-    <button id="lightbox-close" aria-label="Cerrar">✕</button>
+    <button id="lightbox-close" aria-label="Cerrar">✖</button>
     <img id="lb-img" src="" alt="">
   </div>
 
@@ -503,12 +503,12 @@
     <div class="gift-area">
       <button class="gift" id="gift" type="button"
               aria-label="Abrir la caja de sorpresas" aria-expanded="false">
-        <span class="gift-heart" aria-hidden="true">💖</span>
+        <span class="gift-heart" aria-hidden="true">💛</span>
         <span class="gift-lid"   aria-hidden="true"></span>
         <span class="bow"        aria-hidden="true"></span>
         <span class="gift-box"   aria-hidden="true"></span>
       </button>
-      <p class="tap-hint" id="tap-hint">Toca la caja para abrirla ✨</p>
+      <p class="tap-hint" id="tap-hint">Toca la caja para abrirla 🎁</p>
     </div>
 
     <!-- Note -->
@@ -527,7 +527,7 @@
       <p class="card-hint">Haz clic en una foto para ampliarla.</p>
       <div class="photo-grid" id="photo-grid" aria-live="polite"></div>
       <div class="no-photos" id="no-photos-msg">
-        📷 Agrega las rutas de tus fotos en <strong>config.js</strong>
+        📁 Agrega las rutas de tus fotos en <strong>config.js</strong>
       </div>
     </div>
 
@@ -537,6 +537,7 @@
       <p class="card-hint">Tu canción especial.</p>
 
       <p class="no-song" id="no-song" hidden></p>
+      <p class="no-song" id="song-error" role="status" hidden></p>
 
       <div class="player" id="player">
         <div class="disc" id="disc"></div>
@@ -547,9 +548,9 @@
           <div class="vbar"></div>
         </div>
         <div class="controls-row">
-          <button class="skip-btn" id="restart-btn" aria-label="Reiniciar" title="Reiniciar">⟪</button>
+          <button class="skip-btn" id="restart-btn" aria-label="Reiniciar" title="Reiniciar">↩</button>
           <button class="play-btn" id="play-btn" aria-label="Reproducir">▶</button>
-          <button class="skip-btn" id="loop-btn"    aria-label="Repetir" title="Repetir">↺</button>
+          <button class="skip-btn" id="loop-btn"    aria-label="Repetir" title="Repetir">🔁</button>
         </div>
         <div class="progress-wrap">
           <div class="progress-bar" id="progress-bar">
@@ -563,10 +564,10 @@
       </div>
     </div>
 
-    <p class="footer">Hecho con <span>💗</span> especialmente para ti</p>
+    <p class="footer">Hecho con <span>💙</span> especialmente para ti</p>
   </main>
 
-<script src="config.js"></script>
+<script src="./config.js"></script>
 <script>
 /* ══════════════════════════════════════
    CONFETTI
@@ -635,25 +636,19 @@ gift.addEventListener("click", () => {
   opened = true;
   gift.classList.add("open");
   gift.setAttribute("aria-expanded", "true");
-  tapHint.textContent = "¡Una cajita llena de cariño! 💖";
+  tapHint.textContent = "¡Una cajita llena de cariño! 💛";
   launchConfetti();
-  if (CONFIG.cancion && CONFIG.cancion.ruta) {
-    const songUrl = new URL(CONFIG.cancion.ruta.replace(/\\/g, "/"), window.location.href).href;
-    if (!audio.src || decodeURIComponent(audio.src) !== decodeURIComponent(songUrl)) {
-      audio.src = songUrl;
-    }
-    audio.play().catch(() => {});
-  }
+  void playSong();
   document.querySelectorAll(".reveal").forEach((el, i) =>
     setTimeout(() => el.classList.add("visible"), 280 + i * 200)
   );
 });
 
 /* ── Cargar mensaje y firma desde config.js ── */
-document.getElementById("note-text").textContent  = CONFIG.mensaje || "";
-document.getElementById("note-firma").textContent = CONFIG.firma   || "";
+document.getElementById("note-text").textContent  = window.CONFIG.mensaje || "";
+document.getElementById("note-firma").textContent = window.CONFIG.firma   || "";
 /* ── Título de pestaña ── */
-if (CONFIG.titulo) document.title = CONFIG.titulo;
+if (window.CONFIG.titulo) document.title = window.CONFIG.titulo;
 
 /* ══════════════════════════════════════
    PHOTO GALLERY
@@ -694,11 +689,11 @@ function makePolaroid(src, num, idx) {
   photoGrid.appendChild(wrap);
 }
 
-if (CONFIG.fotos && CONFIG.fotos.length > 0) {
+if (window.CONFIG.fotos && window.CONFIG.fotos.length > 0) {
   noPhotosMsg.style.display = "none";
-  photoCount.textContent = CONFIG.fotos.length;
+  photoCount.textContent = window.CONFIG.fotos.length;
   photoCount.hidden = false;
-  CONFIG.fotos.forEach((src, i) => makePolaroid(src, i + 1, i));
+  window.CONFIG.fotos.forEach((src, i) => makePolaroid(src, i + 1, i));
 }
 
 function openLightbox(src, alt) {
@@ -728,93 +723,59 @@ const progFill    = document.getElementById("progress-fill");
 const tCur        = document.getElementById("t-cur");
 const tEnd        = document.getElementById("t-end");
 const noSong      = document.getElementById("no-song");
+const songError   = document.getElementById("song-error");
 const vbars       = document.querySelectorAll(".vbar");
+const SONG_PATH   = "./musica/casa.mp3";
 const audio       = new Audio();
-audio.preload    = "none";
+audio.preload    = "auto";
 let   looping     = false;
-let   fallbackCtx = null;
-let   fallbackTimer = null;
 
-function ensureFallbackAudio() {
-  if (!fallbackCtx) {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return null;
-    fallbackCtx = new AudioCtx();
+function showSongError(error) {
+  if (error && error.name === "NotAllowedError") {
+    songError.textContent = "El navegador bloqueó la reproducción automática. Pulsa reproducir para escuchar la canción.";
+  } else if (window.location.protocol === "file:") {
+    songError.textContent = "Abre esta página con un servidor local, como Live Server, para cargar la música.";
+  } else {
+    songError.textContent = "No se pudo reproducir la canción. Comprueba la ruta y el formato del archivo.";
   }
-  if (fallbackCtx.state === "suspended") {
-    fallbackCtx.resume().catch(() => {});
-  }
-  return fallbackCtx;
+  songError.hidden = false;
+  if (error) console.warn("No se pudo reproducir la canción:", error);
 }
 
-function stopFallbackAudio() {
-  if (fallbackTimer) {
-    clearInterval(fallbackTimer);
-    fallbackTimer = null;
-  }
-}
-
-function startFallbackAudio() {
-  const ctx = ensureFallbackAudio();
-  if (!ctx) return;
-  stopFallbackAudio();
-
-  const notes = [261.63, 329.63, 392.0, 329.63, 293.66, 349.23, 440.0, 349.23];
-  let i = 0;
-  fallbackTimer = setInterval(() => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = notes[i % notes.length];
-    gain.gain.value = 0.0001;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const start = ctx.currentTime;
-    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.65);
-    osc.start(start);
-    osc.stop(start + 0.7);
-    i += 1;
-  }, 420);
-}
-
-function getSongUrl() {
-  if (!CONFIG.cancion || !CONFIG.cancion.ruta) return "";
-  return new URL(CONFIG.cancion.ruta.replace(/\\/g, "/"), window.location.href).href;
-}
-
-if (CONFIG.cancion && CONFIG.cancion.ruta) {
-  trackName.textContent = CONFIG.cancion.titulo
-    || CONFIG.cancion.ruta.replace(/.*\//, "").replace(/\.[^.]+$/, "");
+if (SONG_PATH) {
+  trackName.textContent = window.CONFIG.cancion.titulo
+    || SONG_PATH.replace(/.*\//, "").replace(/\.[^.]+$/, "");
   player.classList.add("active");
 } else {
-  noSong.textContent = "Agrega una canción en config.js 🎵";
+  noSong.textContent = "Agrega la ruta de la canción en index.html 🎵";
   noSong.hidden = false;
 }
 
 function ensureSongLoaded() {
-  if (!CONFIG.cancion || !CONFIG.cancion.ruta) return false;
-  const songUrl = getSongUrl();
-  if (!audio.src || decodeURIComponent(audio.src) !== decodeURIComponent(songUrl)) {
-    audio.src = songUrl;
+  if (!SONG_PATH) return false;
+  if (!audio.src) {
+    audio.src = new URL(SONG_PATH, document.baseURI).href;
+    audio.load();
   }
   return true;
 }
 
+async function playSong() {
+  if (!ensureSongLoaded()) return;
+  try {
+    await audio.play();
+    songError.hidden = true;
+  } catch (error) {
+    showSongError(error);
+  }
+}
+
 /* Play / Pause */
 playBtn.addEventListener("click", async () => {
-  if (!ensureSongLoaded()) return;
   if (audio.paused) {
-    try {
-      await audio.play();
-      stopFallbackAudio();
-    } catch (error) {
-      console.warn("No se pudo iniciar la música, activando respaldo:", error);
-      startFallbackAudio();
-    }
+    await playSong();
   } else {
     audio.pause();
-    stopFallbackAudio();
   }
 });
 
@@ -822,7 +783,7 @@ playBtn.addEventListener("click", async () => {
 restartBtn.addEventListener("click", () => {
   if (!ensureSongLoaded()) return;
   audio.currentTime = 0;
-  if (audio.paused) audio.play().catch(() => {});
+  if (audio.paused) void playSong();
 });
 
 /* Loop toggle */
@@ -839,18 +800,19 @@ audio.addEventListener("play", () => {
   playBtn.setAttribute("aria-label", "Pausar");
   disc.classList.add("spinning");
   vbars.forEach(b => b.classList.add("on"));
-  stopFallbackAudio();
 });
 audio.addEventListener("pause", () => {
   playBtn.textContent = "▶";
   playBtn.setAttribute("aria-label", "Reproducir");
   disc.classList.remove("spinning");
   vbars.forEach(b => b.classList.remove("on"));
-  stopFallbackAudio();
 });
 audio.addEventListener("error", () => {
-  console.warn("El archivo de audio no es válido, usando respaldo sonoro.");
-  startFallbackAudio();
+  playBtn.textContent = "▶";
+  playBtn.setAttribute("aria-label", "Reproducir");
+  disc.classList.remove("spinning");
+  vbars.forEach(b => b.classList.remove("on"));
+  showSongError(audio.error);
 });
 audio.addEventListener("ended", () => {
   if (!looping) {
@@ -865,7 +827,10 @@ audio.addEventListener("timeupdate", () => {
   progFill.style.width = (audio.currentTime / audio.duration * 100) + "%";
   tCur.textContent = fmt(audio.currentTime);
 });
+audio.addEventListener("canplay", () => { songError.hidden = true; });
 audio.addEventListener("loadedmetadata", () => tEnd.textContent = fmt(audio.duration));
+
+void playSong();
 
 /* Click on progress bar to seek */
 progressBar.addEventListener("click", e => {
